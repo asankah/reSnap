@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 version="2.3"
 
@@ -9,11 +9,13 @@ if [ ! -d "$tmp_dir" ]; then
 fi
 
 # default values
-ip="${REMARKABLE_IP:-10.11.99.1}"
+host="${REMARKABLE_IP:-10.11.99.1}"
 output_file="$tmp_dir/snapshot_$(date +%F_%H-%M-%S).png"
 delete_output_file="true"
 display_output_file="${RESNAP_DISPLAY:-true}"
 filters="null"
+show_image=0
+construct_sketch=0
 
 # parsing arguments
 while [ $# -gt 0 ]; do
@@ -23,7 +25,7 @@ while [ $# -gt 0 ]; do
     shift
     ;;
   -s | --source)
-    ip="$2"
+    host="$2"
     shift
     shift
     ;;
@@ -45,6 +47,15 @@ while [ $# -gt 0 ]; do
     echo "$0 version $version"
     exit 0
     ;;
+  --show)
+    show_image=1
+    shift
+    ;;
+  --sketch)
+    construct_sketch=1
+    shift
+    ;;
+
   -h | --help | *)
     echo "Usage: $0 [-l] [-d] [-n] [-v] [--source <ssh-host>] [--output <output-file>] [-h]"
     echo "Examples:"
@@ -67,7 +78,7 @@ if [ "$delete_output_file" = "true" ] && [ "$display_output_file" = "true" ]; th
 fi
 
 # ssh command
-ssh_host="root@$ip"
+ssh_host="root@${host}"
 ssh_cmd() {
   ssh -o ConnectTimeout=1 "$ssh_host" "$@"
 }
@@ -172,7 +183,16 @@ ssh_cmd "$head_fb0 | $compress" |
     -vf "$filters" \
     -frames:v 1 "$output_file"
 
-if [ "$display_output_file" = "true" ]; then
-  # show the snapshot
-  feh --fullscreen "$output_file"
+if (( construct_sketch == 1 )); then
+  magick "${output_file}" -fill white -draw 'rectangle 0,0 100,100' \
+    -fill white -draw "rectangle 0,1870 2,1872" \
+    -transparent white -trim -resize 50% +repage "${output_file}"
+
+  output_file=$(realpath "${output_file}")
+  osascript -e "set the clipboard to (read (POSIX file \"file://${output_file}\") as «class PNGf»)" 
 fi
+
+if (( show_image == 1 )); then
+  kitty +kitten icat $output_file
+fi
+
