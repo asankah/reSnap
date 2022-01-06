@@ -2,11 +2,6 @@
 
 reMarkable screenshots over ssh.
 
-[![rm1](https://img.shields.io/badge/rM1-supported-green)](https://remarkable.com/store/remarkable)
-[![rm2](https://img.shields.io/badge/rM2-supported-green)](https://remarkable.com/store/remarkable-2)
-
-![a demo of reSnap](misc/demo.gif)
-
 ## Prequisites
 
 - SSH-access to your reMarkable tablet.
@@ -19,7 +14,7 @@ reMarkable screenshots over ssh.
 - The following programs are required on your computer:
   - `lz4`
   - `ffmpeg`
-  - `feh`
+  - [`ImageMagick`](https://imagemagick.org/index.php) -- used by the `--sketch` option to clean up the snapshot.
 
 ### Installing Programs on your reMarkable
 
@@ -48,13 +43,20 @@ opkg install <pkg>
 
 ### Options
 
-- `-s --source` You can specify a custom IP. If you want to use reSnap over the Wifi, specify the IP of your reMarkable here.
-- `-o --output` You can specify a custom output file for reSnap.
-- `-l --landscape` Snapshot has now the landscape orientation.
-- `-d --display` Force program to display the snapshot. (overwrites environment variable)
-- `-n --no-display` Force program to not display the snapshot.
-- `-v --version` Displays version.
-- `-h --help` Displays help information.
+```
+Usage: reSnap.sh [options]
+
+Options:
+  -l, --landscape             Snapshot in Landscape.
+  -s <host>, --source=<host>  SSH hostname or IP address. [default: 10.11.99.1]
+  -o <path>, --output=<path>  Save output in <path>.
+  -v, --version               Display version and exit.
+  --copy                      Copy snapshot image to clipboard.
+  --show                      Show snapshot image (in terminal if possible).
+  --sketch                    Pre-process snapshot as a sketch with a
+                              transparent background and black strokes.
+  -h, --help                  Show help (this).
+```
 
 ## Environment Variables
 
