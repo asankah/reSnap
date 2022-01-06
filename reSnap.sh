@@ -11,11 +11,11 @@ fi
 # default values
 host="${REMARKABLE_IP:-10.11.99.1}"
 output_file="$tmp_dir/snapshot_$(date +%F_%H-%M-%S).png"
-delete_output_file="true"
-display_output_file="${RESNAP_DISPLAY:-true}"
+delete_output_file=1
 filters="null"
 show_image=0
 construct_sketch=0
+copy_to_clipboard=0
 
 # parsing arguments
 while [ $# -gt 0 ]; do
@@ -24,23 +24,24 @@ while [ $# -gt 0 ]; do
     filters="$filters,transpose=1"
     shift
     ;;
-  -s | --source)
+  -s | --source | --host)
     host="$2"
     shift
     shift
     ;;
+  --source=* | --host=*)
+    host="${1#*=}"
+    shift
+    ;;
   -o | --output)
     output_file="$2"
-    delete_output_file="false"
+    delete_output_file=0
     shift
     shift
     ;;
-  -d | --display)
-    display_output_file="true"
-    shift
-    ;;
-  -n | --no-display)
-    display_output_file="false"
+  --output=*)
+    output_file="${1#*=}"
+    delete_output_file=0
     shift
     ;;
   -v | --version)
@@ -55,26 +56,36 @@ while [ $# -gt 0 ]; do
     construct_sketch=1
     shift
     ;;
+  --copy)
+    copy_to_clipboard=1
+    shift
+    ;;
 
   -h | --help | *)
-    echo "Usage: $0 [-l] [-d] [-n] [-v] [--source <ssh-host>] [--output <output-file>] [-h]"
-    echo "Examples:"
-    echo "  $0                    # snapshot in portrait"
-    echo "  $0 -l                 # snapshot in landscape"
-    echo "  $0 -s 192.168.2.104   # snapshot over wifi"
-    echo "  $0 -o snapshot.png    # saves the snapshot in the current directory"
-    echo "  $0 -d                 # force display the file (requires feh)"
-    echo "  $0 -n                 # force don't display the file"
-    echo "  $0 -v                 # displays version"
-    echo "  $0 -h                 # displays help information (this)"
+    program=$(basename $0)
+    # Use docopt format (https://docopt.org)
+    cat <<EOF 1>&2
+Usage: $program [options] 
+
+Options:
+  -l, --landscape             Snapshot in Landscape.
+  -s <host>, --source=<host>  SSH hostname or IP address. [default: ${host}]
+  -o <path>, --output=<path>  Save output in <path>.
+  -v, --version               Display version and exit.
+  --copy                      Copy snapshot image to clipboard.
+  --show                      Show snapshot image (in terminal if possible).
+  --sketch                    Pre-process snapshot as a sketch with a
+                              transparent background and black strokes.
+  -h, --help                  Show help (this).
+EOF
     exit 2
     ;;
   esac
 done
 
-if [ "$delete_output_file" = "true" ] && [ "$display_output_file" = "true" ]; then
+if (( delete_output_file == 1 )); then
   # delete temporary file on exit
-  trap 'rm -f $output_file' EXIT
+  trap 'rm -f "$output_file"' EXIT
 fi
 
 # ssh command
@@ -162,7 +173,7 @@ if ssh_cmd "[ -f /opt/bin/lz4 ]"; then
 elif ssh_cmd "[ -f ~/lz4 ]"; then # backwards compatibility
   compress="\$HOME/lz4"
 else
-  echo "lz4 not found on $rm_version. Please refer to the README"
+  echo "lz4 not found on $rm_version. Please refer to the README" 1>&2
   exit 2
 fi
 
@@ -184,15 +195,35 @@ ssh_cmd "$head_fb0 | $compress" |
     -frames:v 1 "$output_file"
 
 if (( construct_sketch == 1 )); then
+  # The snapshot is going to contain a 
   magick "${output_file}" -fill white -draw 'rectangle 0,0 100,100' \
     -fill white -draw "rectangle 0,1870 2,1872" \
     -transparent white -trim -resize 50% +repage "${output_file}"
 
   output_file=$(realpath "${output_file}")
-  osascript -e "set the clipboard to (read (POSIX file \"file://${output_file}\") as «class PNGf»)" 
+fi
+
+if (( copy_to_clipboard == 1 )); then
+  case "$(uname)" in
+    Darwin)
+      osascript -e "set the clipboard to (read (POSIX file \"file://${output_file}\") as «class PNGf»)" 
+      ;;
+    *)
+      echo "The current platform is not supported for clipboard operations." 1>&2
+      ;;
+  esac
 fi
 
 if (( show_image == 1 )); then
-  kitty +kitten icat $output_file
+  if [[ -n "$(type -t viu)" ]]; then
+    viu "$output_file"
+  elif [[ -n "$(type -t kitty)" ]]; then
+    kitty +kitten icat "$output_file"
+  elif [[ -n "$(type -t feh)" ]]; then
+    feh --fullscreen "$output_file"
+  else
+    echo "No compatible image viewer found." 1>&2
+    exit 3
+  fi
 fi
 
