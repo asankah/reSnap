@@ -195,7 +195,18 @@ ssh_cmd "$head_fb0 | $compress" |
     -frames:v 1 "$output_file"
 
 if (( construct_sketch == 1 )); then
-  # The snapshot is going to contain a 
+  # The snapshot is going to contain a little widget near the top-left corner.
+  # Inexplicably there's also a single black dot in the bottom left corner of
+  # the canvas. The draw operations below erase those artifacts by drawing
+  # white rectangles over them.
+  #
+  # In addition, we mark the white background pixels as transparent (including
+  # the rectangles drawn to erase unrelated artifacts). Then we downsample the
+  # image to 50% with anti-aliasing to reduce pixelation and get the image down
+  # to display size.
+  #
+  # Following this we trim all the transparent edges so that the final image is
+  # just the drawing.
   magick "${output_file}" -fill white -draw 'rectangle 0,0 100,100' \
     -fill white -draw "rectangle 0,1870 2,1872" \
     -transparent white -trim -resize 50% +repage "${output_file}"
