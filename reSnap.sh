@@ -9,7 +9,7 @@ if [ ! -d "$tmp_dir" ]; then
 fi
 
 # default values
-host="${REMARKABLE_IP:-10.11.99.1}"
+host="${REMARKABLE_HOST:-10.11.99.1}"
 output_file="$tmp_dir/snapshot_$(date +%F_%H-%M-%S).png"
 delete_output_file=1
 filters="null"
@@ -218,6 +218,9 @@ if (( copy_to_clipboard == 1 )); then
   case "$(uname)" in
     Darwin)
       osascript -e "set the clipboard to (read (POSIX file \"file://${output_file}\") as «class PNGf»)" 
+      ;;
+    Linux)
+      xclip -selection clipboard -t image/png -i "${output_file}"
       ;;
     *)
       echo "The current platform is not supported for clipboard operations." 1>&2
